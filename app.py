@@ -1,17 +1,18 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
-import yfinance as yf
-import pandas as pd
-import numpy as np
 import warnings
+
+import numpy as np
+import pandas as pd
+import yfinance as yf
 
 warnings.filterwarnings("ignore")
 
 app = FastAPI(
     title="Trading Research API",
     description="Daily trading research API for sector, stock and trade research automation.",
-    version="1.1.0"
+    version="1.2.0"
 )
 
 app.add_middleware(
@@ -22,13 +23,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-CACHE = {
-    "daily_research": None,
-    "created_at": None
-}
-
+CACHE = {"daily_research": None, "created_at": None}
 CACHE_MINUTES = 10
 
+# -----------------------------
+# Universe
+# -----------------------------
 
 sector_etfs = {
     "SPY": "Genel piyasa referansı",
@@ -48,138 +48,82 @@ sector_etfs = {
 
 sector_stock_universes = {
     "XLU": {
-        "NEE": "NextEra Energy",
-        "SO": "Southern Company",
-        "DUK": "Duke Energy",
-        "CEG": "Constellation Energy",
-        "SRE": "Sempra",
-        "AEP": "American Electric Power",
-        "EXC": "Exelon",
-        "PEG": "Public Service Enterprise Group",
-        "XEL": "Xcel Energy",
-        "ED": "Consolidated Edison",
-        "WEC": "WEC Energy",
-        "D": "Dominion Energy",
+        "NEE": "NextEra Energy", "SO": "Southern Company", "DUK": "Duke Energy",
+        "CEG": "Constellation Energy", "SRE": "Sempra", "AEP": "American Electric Power",
+        "EXC": "Exelon", "PEG": "Public Service Enterprise Group", "XEL": "Xcel Energy",
+        "ED": "Consolidated Edison", "WEC": "WEC Energy", "D": "Dominion Energy",
         "AWK": "American Water Works",
     },
     "XLV": {
-        "LLY": "Eli Lilly",
-        "JNJ": "Johnson & Johnson",
-        "UNH": "UnitedHealth",
-        "ABBV": "AbbVie",
-        "MRK": "Merck",
-        "TMO": "Thermo Fisher",
-        "ABT": "Abbott",
-        "ISRG": "Intuitive Surgical",
-        "AMGN": "Amgen",
-        "GILD": "Gilead",
-        "PFE": "Pfizer",
-        "BMY": "Bristol Myers",
+        "LLY": "Eli Lilly", "JNJ": "Johnson & Johnson", "UNH": "UnitedHealth",
+        "ABBV": "AbbVie", "MRK": "Merck", "TMO": "Thermo Fisher",
+        "ABT": "Abbott", "ISRG": "Intuitive Surgical", "AMGN": "Amgen",
+        "GILD": "Gilead", "PFE": "Pfizer", "BMY": "Bristol Myers",
     },
     "XLC": {
-        "GOOGL": "Alphabet A",
-        "GOOG": "Alphabet C",
-        "META": "Meta Platforms",
-        "NFLX": "Netflix",
-        "TMUS": "T-Mobile",
-        "DIS": "Disney",
-        "CMCSA": "Comcast",
-        "VZ": "Verizon",
-        "T": "AT&T",
+        "GOOGL": "Alphabet A", "GOOG": "Alphabet C", "META": "Meta Platforms",
+        "NFLX": "Netflix", "TMUS": "T-Mobile", "DIS": "Disney",
+        "CMCSA": "Comcast", "VZ": "Verizon", "T": "AT&T",
     },
     "XLE": {
-        "XOM": "Exxon Mobil",
-        "CVX": "Chevron",
-        "COP": "ConocoPhillips",
-        "EOG": "EOG Resources",
-        "SLB": "Schlumberger",
-        "MPC": "Marathon Petroleum",
-        "PSX": "Phillips 66",
-        "VLO": "Valero",
-        "OXY": "Occidental Petroleum",
+        "XOM": "Exxon Mobil", "CVX": "Chevron", "COP": "ConocoPhillips",
+        "EOG": "EOG Resources", "SLB": "Schlumberger", "MPC": "Marathon Petroleum",
+        "PSX": "Phillips 66", "VLO": "Valero", "OXY": "Occidental Petroleum",
     },
     "XLK": {
-        "MSFT": "Microsoft",
-        "AAPL": "Apple",
-        "NVDA": "NVIDIA",
-        "AVGO": "Broadcom",
-        "ORCL": "Oracle",
-        "CRM": "Salesforce",
-        "AMD": "AMD",
-        "ADBE": "Adobe",
-        "CSCO": "Cisco",
-        "ACN": "Accenture",
-        "IBM": "IBM",
-        "QCOM": "Qualcomm",
+        "MSFT": "Microsoft", "AAPL": "Apple", "NVDA": "NVIDIA",
+        "AVGO": "Broadcom", "ORCL": "Oracle", "CRM": "Salesforce",
+        "AMD": "AMD", "ADBE": "Adobe", "CSCO": "Cisco",
+        "ACN": "Accenture", "IBM": "IBM", "QCOM": "Qualcomm",
     },
     "XLF": {
-        "JPM": "JPMorgan Chase",
-        "BAC": "Bank of America",
-        "WFC": "Wells Fargo",
-        "GS": "Goldman Sachs",
-        "MS": "Morgan Stanley",
-        "AXP": "American Express",
-        "C": "Citigroup",
-        "BLK": "BlackRock",
-        "SCHW": "Charles Schwab",
-        "PGR": "Progressive",
-        "CB": "Chubb",
+        "JPM": "JPMorgan Chase", "BAC": "Bank of America", "WFC": "Wells Fargo",
+        "GS": "Goldman Sachs", "MS": "Morgan Stanley", "AXP": "American Express",
+        "C": "Citigroup", "BLK": "BlackRock", "SCHW": "Charles Schwab",
+        "PGR": "Progressive", "CB": "Chubb",
     },
     "XLI": {
-        "GE": "GE Aerospace",
-        "CAT": "Caterpillar",
-        "RTX": "RTX",
-        "HON": "Honeywell",
-        "UNP": "Union Pacific",
-        "UPS": "UPS",
-        "BA": "Boeing",
-        "LMT": "Lockheed Martin",
-        "DE": "Deere",
-        "ETN": "Eaton",
+        "GE": "GE Aerospace", "CAT": "Caterpillar", "RTX": "RTX",
+        "HON": "Honeywell", "UNP": "Union Pacific", "UPS": "UPS",
+        "BA": "Boeing", "LMT": "Lockheed Martin", "DE": "Deere", "ETN": "Eaton",
     },
     "XLY": {
-        "AMZN": "Amazon",
-        "TSLA": "Tesla",
-        "HD": "Home Depot",
-        "MCD": "McDonald's",
-        "NKE": "Nike",
-        "SBUX": "Starbucks",
-        "LOW": "Lowe's",
-        "BKNG": "Booking",
-        "TJX": "TJX",
+        "AMZN": "Amazon", "TSLA": "Tesla", "HD": "Home Depot",
+        "MCD": "McDonald's", "NKE": "Nike", "SBUX": "Starbucks",
+        "LOW": "Lowe's", "BKNG": "Booking", "TJX": "TJX",
     },
     "XLP": {
-        "WMT": "Walmart",
-        "COST": "Costco",
-        "PG": "Procter & Gamble",
-        "KO": "Coca-Cola",
-        "PEP": "PepsiCo",
-        "PM": "Philip Morris",
-        "MO": "Altria",
-        "MDLZ": "Mondelez",
-        "CL": "Colgate-Palmolive",
+        "WMT": "Walmart", "COST": "Costco", "PG": "Procter & Gamble",
+        "KO": "Coca-Cola", "PEP": "PepsiCo", "PM": "Philip Morris",
+        "MO": "Altria", "MDLZ": "Mondelez", "CL": "Colgate-Palmolive",
     },
     "XLB": {
-        "LIN": "Linde",
-        "SHW": "Sherwin-Williams",
-        "APD": "Air Products",
-        "ECL": "Ecolab",
-        "FCX": "Freeport-McMoRan",
-        "NEM": "Newmont",
-        "DOW": "Dow",
-        "DD": "DuPont",
+        "LIN": "Linde", "SHW": "Sherwin-Williams", "APD": "Air Products",
+        "ECL": "Ecolab", "FCX": "Freeport-McMoRan", "NEM": "Newmont",
+        "DOW": "Dow", "DD": "DuPont",
     },
     "XLRE": {
-        "PLD": "Prologis",
-        "AMT": "American Tower",
-        "EQIX": "Equinix",
-        "WELL": "Welltower",
-        "SPG": "Simon Property",
-        "PSA": "Public Storage",
-        "O": "Realty Income",
-        "DLR": "Digital Realty",
+        "PLD": "Prologis", "AMT": "American Tower", "EQIX": "Equinix",
+        "WELL": "Welltower", "SPG": "Simon Property", "PSA": "Public Storage",
+        "O": "Realty Income", "DLR": "Digital Realty",
     },
 }
+
+# -----------------------------
+# Helpers
+# -----------------------------
+
+def safe_round(value, digits=2):
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    try:
+        if pd.isna(value):
+            return None
+    except Exception:
+        pass
+    return round(float(value), digits)
 
 
 def to_float(value):
@@ -190,22 +134,98 @@ def to_float(value):
     return float(value)
 
 
-def get_single_ticker_data(symbol, period="6mo", interval="1d"):
-    df = yf.download(
-        tickers=symbol,
-        period=period,
-        interval=interval,
-        auto_adjust=False,
-        progress=False
-    ).dropna()
+def normalize_df(df):
+    if df is None or df.empty:
+        return pd.DataFrame()
 
     if isinstance(df.columns, pd.MultiIndex):
-        if symbol in df.columns.get_level_values(-1):
-            df = df.xs(symbol, axis=1, level=-1)
-        else:
-            df.columns = df.columns.get_level_values(0)
+        # yfinance can return MultiIndex even for one ticker.
+        df.columns = df.columns.get_level_values(0)
 
-    return df.dropna()
+    needed = ["Open", "High", "Low", "Close", "Volume"]
+    missing = [c for c in needed if c not in df.columns]
+    if missing:
+        return pd.DataFrame()
+
+    out = df[needed].copy().dropna()
+    return out
+
+
+def get_single_ticker_data(symbol, period="1mo", interval="1d"):
+    # Method 1: yf.download
+    try:
+        df = yf.download(
+            tickers=symbol,
+            period=period,
+            interval=interval,
+            auto_adjust=False,
+            progress=False,
+            threads=False,
+        )
+        df = normalize_df(df)
+        if len(df) >= 2:
+            return df
+    except Exception:
+        pass
+
+    # Method 2: Ticker.history fallback
+    try:
+        ticker = yf.Ticker(symbol)
+        df = ticker.history(period=period, interval=interval, auto_adjust=False)
+        df = normalize_df(df)
+        if len(df) >= 2:
+            return df
+    except Exception:
+        pass
+
+    return pd.DataFrame()
+
+
+def change_pct_from_df(df):
+    latest = df.iloc[-1]
+    previous = df.iloc[-2]
+    latest_close = to_float(latest["Close"])
+    previous_close = to_float(previous["Close"])
+    change_pct = ((latest_close - previous_close) / previous_close) * 100
+    return {
+        "date": str(df.index[-1].date()) if hasattr(df.index[-1], "date") else str(df.index[-1]),
+        "latest_close": latest_close,
+        "previous_close": previous_close,
+        "day_high": to_float(latest["High"]),
+        "day_low": to_float(latest["Low"]),
+        "volume": int(to_float(latest["Volume"])),
+        "change_pct": change_pct,
+    }
+
+
+def get_benchmark_data(primary_symbol, fallback_symbols, period="1mo", interval="1d"):
+    for ticker in [primary_symbol] + fallback_symbols:
+        df = get_single_ticker_data(ticker, period=period, interval=interval)
+        if len(df) >= 2:
+            info = change_pct_from_df(df)
+            info.update({
+                "requested_symbol": primary_symbol,
+                "used_symbol": ticker,
+                "status": "ok",
+            })
+            return info
+
+    return {
+        "requested_symbol": primary_symbol,
+        "used_symbol": None,
+        "change_pct": None,
+        "status": "error",
+    }
+
+
+def relative_status(value, benchmark):
+    if benchmark is None:
+        return "Referans veri yok"
+    if value > benchmark:
+        return "Daha güçlü"
+    if value < benchmark:
+        return "Daha zayıf"
+    return "Nötr"
 
 
 def calculate_rsi(series, period=14):
@@ -223,169 +243,103 @@ def calculate_atr(df, period=14):
     true_range = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
     return true_range.rolling(period).mean()
 
-
-def relative_status(value, benchmark):
-    if value > benchmark:
-        return "Daha güçlü"
-    if value < benchmark:
-        return "Daha zayıf"
-    return "Nötr"
-
-
-def safe_round(value, digits=2):
-    if value is None:
-        return None
-    if isinstance(value, str):
-        return value
-    if pd.isna(value):
-        return None
-    return round(float(value), digits)
-def get_benchmark_data(primary_symbol, fallback_symbols, period="1mo", interval="1d"):
-    symbols_to_try = [primary_symbol] + fallback_symbols
-
-    for ticker in symbols_to_try:
-        try:
-            df = get_single_ticker_data(ticker, period=period, interval=interval)
-
-            if len(df) >= 2:
-                latest = df.iloc[-1]
-                previous = df.iloc[-2]
-
-                latest_close = to_float(latest["Close"])
-                previous_close = to_float(previous["Close"])
-
-                change_pct = ((latest_close - previous_close) / previous_close) * 100
-
-                return {
-                    "requested_symbol": primary_symbol,
-                    "used_symbol": ticker,
-                    "change_pct": change_pct,
-                    "latest_close": latest_close,
-                    "previous_close": previous_close,
-                    "date": df.index[-1].strftime("%Y-%m-%d"),
-                    "status": "ok"
-                }
-
-        except Exception:
-            continue
-
-    raise RuntimeError(f"{primary_symbol} ve fallback sembolleri için veri alınamadı: {fallback_symbols}")
+# -----------------------------
+# Research engine
+# -----------------------------
 
 def scan_sectors():
+    spy_benchmark = get_benchmark_data("SPY", ["VOO", "IVV", "^GSPC"], period="1mo", interval="1d")
+    qqq_benchmark = get_benchmark_data("QQQ", ["QQQM"], period="1mo", interval="1d")
+
+    spy_change = spy_benchmark["change_pct"]
+    qqq_change = qqq_benchmark["change_pct"]
+
     rows = []
+    errors = []
 
     for symbol, sector_name in sector_etfs.items():
         try:
             df = get_single_ticker_data(symbol, period="1mo", interval="1d")
-
             if len(df) < 2:
-                rows.append({"symbol": symbol, "sector": sector_name, "error": "Yeterli veri yok"})
+                errors.append({"symbol": symbol, "error": "Yeterli veri yok"})
                 continue
 
-            latest = df.iloc[-1]
-            previous = df.iloc[-2]
-
-            latest_close = to_float(latest["Close"])
-            previous_close = to_float(previous["Close"])
-            day_high = to_float(latest["High"])
-            day_low = to_float(latest["Low"])
-            volume = int(to_float(latest["Volume"]))
-
-            change = latest_close - previous_close
-            change_pct = (change / previous_close) * 100
-
-            rows.append({
+            info = change_pct_from_df(df)
+            row = {
                 "symbol": symbol,
                 "sector": sector_name,
-                "date": df.index[-1].strftime("%Y-%m-%d"),
-                "latest_close": latest_close,
-                "previous_close": previous_close,
-                "day_high": day_high,
-                "day_low": day_low,
-                "change": change,
-                "change_pct": change_pct,
-                "volume": volume,
-                "error": None
-            })
-
+                "date": info["date"],
+                "latest_close": info["latest_close"],
+                "previous_close": info["previous_close"],
+                "day_high": info["day_high"],
+                "day_low": info["day_low"],
+                "change_pct": info["change_pct"],
+                "volume": info["volume"],
+                "vs_spy": relative_status(info["change_pct"], spy_change),
+                "vs_qqq": relative_status(info["change_pct"], qqq_change),
+            }
+            rows.append(row)
         except Exception as e:
-            rows.append({"symbol": symbol, "sector": sector_name, "error": str(e)})
+            errors.append({"symbol": symbol, "error": str(e)})
 
-    df = pd.DataFrame(rows)
-    clean = df[df["error"].isna()].copy()
+    if not rows:
+        raise RuntimeError(f"Sektör verisi alınamadı. Hatalar: {errors}")
 
-    if clean.empty:
-        raise RuntimeError("Sektör verisi alınamadı.")
+    sector_scan = sorted(rows, key=lambda x: x["change_pct"], reverse=True)
 
-    spy_benchmark = get_benchmark_data(
-    primary_symbol="SPY",
-    fallback_symbols=["VOO", "IVV", "^GSPC"],
-    period="1mo",
-    interval="1d"
-)
+    sectors_only = [
+        r for r in sector_scan
+        if r["symbol"] not in ["SPY", "QQQ"] and r["symbol"] in sector_stock_universes
+    ]
 
-qqq_benchmark = get_benchmark_data(
-    primary_symbol="QQQ",
-    fallback_symbols=["QQQM"],
-    period="1mo",
-    interval="1d"
-)
+    if not sectors_only:
+        raise RuntimeError("Hisse evreni tanımlı sektör bulunamadı.")
 
-spy_change = spy_benchmark["change_pct"]
-qqq_change = qqq_benchmark["change_pct"]
-
-    clean["vs_spy"] = clean["change_pct"].apply(lambda x: relative_status(x, spy_change))
-    clean["vs_qqq"] = clean["change_pct"].apply(lambda x: relative_status(x, qqq_change))
-
-    clean = clean.sort_values("change_pct", ascending=False)
-
-    sector_scan = []
-    for _, row in clean.iterrows():
-        sector_scan.append({
-            "symbol": row["symbol"],
-            "sector": row["sector"],
-            "date": row["date"],
-            "latest_close": safe_round(row["latest_close"]),
-            "previous_close": safe_round(row["previous_close"]),
-            "day_high": safe_round(row["day_high"]),
-            "day_low": safe_round(row["day_low"]),
-            "change_pct": safe_round(row["change_pct"]),
-            "volume": int(row["volume"]),
-            "vs_spy": row["vs_spy"],
-            "vs_qqq": row["vs_qqq"]
-        })
-
-    sectors_only = clean[
-        (~clean["symbol"].isin(["SPY", "QQQ"])) &
-        (clean["symbol"].isin(sector_stock_universes.keys()))
-    ].copy()
-
-    top_sector = sectors_only.sort_values("change_pct", ascending=False).iloc[0]
+    selected_sector = sectors_only[0]
 
     return {
-        "sector_scan": sector_scan,
-        "spy_change_pct": safe_round(spy_change),
-        "qqq_change_pct": safe_round(qqq_change),
-        "spy_benchmark_used": spy_benchmark["used_symbol"],
-"qqq_benchmark_used": qqq_benchmark["used_symbol"],
+        "sector_scan": [
+            {
+                **r,
+                "latest_close": safe_round(r["latest_close"]),
+                "previous_close": safe_round(r["previous_close"]),
+                "day_high": safe_round(r["day_high"]),
+                "day_low": safe_round(r["day_low"]),
+                "change_pct": safe_round(r["change_pct"]),
+            }
+            for r in sector_scan
+        ],
+        "sector_errors": errors,
+        "spy_benchmark": {
+            "requested_symbol": "SPY",
+            "used_symbol": spy_benchmark["used_symbol"],
+            "change_pct": safe_round(spy_change),
+            "status": spy_benchmark["status"],
+        },
+        "qqq_benchmark": {
+            "requested_symbol": "QQQ",
+            "used_symbol": qqq_benchmark["used_symbol"],
+            "change_pct": safe_round(qqq_change),
+            "status": qqq_benchmark["status"],
+        },
         "selected_sector": {
-            "symbol": top_sector["symbol"],
-            "name": top_sector["sector"],
-            "change_pct": safe_round(top_sector["change_pct"])
-        }
+            "symbol": selected_sector["symbol"],
+            "name": selected_sector["sector"],
+            "change_pct": safe_round(selected_sector["change_pct"]),
+        },
     }
 
 
 def scan_stocks_for_sector(sector_symbol, spy_change_pct, sector_change_pct):
     universe = sector_stock_universes[sector_symbol]
     rows = []
+    errors = []
 
     for symbol, company_name in universe.items():
         try:
             df = get_single_ticker_data(symbol, period="3mo", interval="1d")
-
             if len(df) < 50:
-                rows.append({"symbol": symbol, "name": company_name, "error": "Yeterli veri yok"})
+                errors.append({"symbol": symbol, "error": "Yeterli veri yok"})
                 continue
 
             close = df["Close"]
@@ -405,7 +359,7 @@ def scan_stocks_for_sector(sector_symbol, spy_change_pct, sector_change_pct):
 
             latest_volume = to_float(volume.iloc[-1])
             avg_volume_20 = to_float(volume.tail(20).mean())
-            relative_volume = latest_volume / avg_volume_20 if avg_volume_20 > 0 else np.nan
+            relative_volume = latest_volume / avg_volume_20 if avg_volume_20 > 0 else None
 
             above_sma20 = latest_close > sma20
             above_sma50 = latest_close > sma50
@@ -426,13 +380,13 @@ def scan_stocks_for_sector(sector_symbol, spy_change_pct, sector_change_pct):
                 score += 15
             if above_sma50:
                 score += 10
-            if relative_volume >= 1:
+            if relative_volume is not None and relative_volume >= 1:
                 score += 5
 
             rows.append({
                 "symbol": symbol,
                 "name": company_name,
-                "date": df.index[-1].strftime("%Y-%m-%d"),
+                "date": str(df.index[-1].date()) if hasattr(df.index[-1], "date") else str(df.index[-1]),
                 "latest_close": latest_close,
                 "change_1d_pct": change_1d,
                 "change_5d_pct": change_5d,
@@ -443,48 +397,41 @@ def scan_stocks_for_sector(sector_symbol, spy_change_pct, sector_change_pct):
                 "above_sma50": above_sma50,
                 "relative_volume": relative_volume,
                 "research_score": score,
-                "error": None
             })
 
         except Exception as e:
-            rows.append({"symbol": symbol, "name": company_name, "error": str(e)})
+            errors.append({"symbol": symbol, "error": str(e)})
 
-    df = pd.DataFrame(rows)
-    clean = df[df["error"].isna()].copy()
+    if not rows:
+        raise RuntimeError(f"Hisse tarama verisi alınamadı. Hatalar: {errors}")
 
-    if clean.empty:
-        raise RuntimeError("Hisse tarama verisi alınamadı.")
+    stock_scan = sorted(rows, key=lambda x: x["research_score"], reverse=True)
 
-    clean = clean.sort_values("research_score", ascending=False)
-
-    stock_scan = []
-    for _, row in clean.iterrows():
-        stock_scan.append({
-            "symbol": row["symbol"],
-            "name": row["name"],
-            "date": row["date"],
-            "latest_close": safe_round(row["latest_close"]),
-            "change_1d_pct": safe_round(row["change_1d_pct"]),
-            "change_5d_pct": safe_round(row["change_5d_pct"]),
-            "change_20d_pct": safe_round(row["change_20d_pct"]),
-            "vs_spy_1d": row["vs_spy_1d"],
-            "vs_sector_1d": row["vs_sector_1d"],
-            "above_sma20": bool(row["above_sma20"]),
-            "above_sma50": bool(row["above_sma50"]),
-            "relative_volume": safe_round(row["relative_volume"]),
-            "research_score": int(row["research_score"])
+    clean_scan = []
+    for r in stock_scan:
+        clean_scan.append({
+            **r,
+            "latest_close": safe_round(r["latest_close"]),
+            "change_1d_pct": safe_round(r["change_1d_pct"]),
+            "change_5d_pct": safe_round(r["change_5d_pct"]),
+            "change_20d_pct": safe_round(r["change_20d_pct"]),
+            "above_sma20": bool(r["above_sma20"]),
+            "above_sma50": bool(r["above_sma50"]),
+            "relative_volume": safe_round(r["relative_volume"]),
+            "research_score": int(r["research_score"]),
         })
 
-    final = stock_scan[0]
-
     return {
-        "stock_scan": stock_scan,
-        "final_candidate": final
+        "stock_scan": clean_scan,
+        "stock_errors": errors,
+        "final_candidate": clean_scan[0],
     }
 
 
 def prepare_final_candidate(symbol, name):
     df = get_single_ticker_data(symbol, period="1y", interval="1d")
+    if len(df) < 50:
+        raise RuntimeError(f"{symbol} için yeterli final aday verisi alınamadı.")
 
     close = df["Close"]
     high = df["High"]
@@ -508,7 +455,7 @@ def prepare_final_candidate(symbol, name):
 
     latest_volume = to_float(volume.iloc[-1])
     avg_volume_20 = to_float(volume.tail(20).mean())
-    relative_volume = latest_volume / avg_volume_20 if avg_volume_20 > 0 else np.nan
+    relative_volume = latest_volume / avg_volume_20 if avg_volume_20 > 0 else None
 
     support_10d = to_float(low.tail(10).min())
     support_20d = to_float(low.tail(20).min())
@@ -539,7 +486,9 @@ def prepare_final_candidate(symbol, name):
     else:
         rsi_comment = "RSI zayıf momentum bölgesinde"
 
-    if relative_volume >= 1.2:
+    if relative_volume is None:
+        volume_comment = "Hacim verisi sınırlı"
+    elif relative_volume >= 1.2:
         volume_comment = "Hacim ortalamanın belirgin üstünde"
     elif relative_volume >= 1.0:
         volume_comment = "Hacim ortalama civarı / hafif üstü"
@@ -548,31 +497,32 @@ def prepare_final_candidate(symbol, name):
 
     entry_reference = resistance_20d
     stop_reference = support_10d
+    risk_points = entry_reference - stop_reference
 
     target_candidates = [resistance_50d, resistance_6m, resistance_1y]
     valid_targets = [x for x in target_candidates if x > entry_reference]
 
-    risk_points = entry_reference - stop_reference
-
-    if valid_targets:
-        target_1_reference = min(valid_targets)
-        reward_points = target_1_reference - entry_reference
-        risk_reward = reward_points / risk_points if risk_points > 0 else None
-        target_text = f"{target_1_reference:.2f}"
+    if valid_targets and risk_points > 0:
+        target_1 = min(valid_targets)
+        reward_points = target_1 - entry_reference
+        risk_reward_value = reward_points / risk_points
+        target_text = f"{target_1:.2f}"
         reward_text = f"{reward_points:.2f}"
-        rr_text = f"{risk_reward:.2f}R"
+        rr_text = f"{risk_reward_value:.2f}R"
     else:
-        target_1_reference = None
         reward_points = None
-        risk_reward = None
+        risk_reward_value = None
         target_text = "Veri eksik: giriş bölgesinin üzerinde 50G / 6A / 1Y direnç bulunamadı"
         reward_text = "Veri eksik"
         rr_text = "Veri eksik"
 
-    if risk_reward is None:
+    if risk_reward_value is None:
         trade_status = "not_suitable_data_missing"
         trade_decision = "Risk/ödül hesaplanamadığı için aktif işlem planı uygun değil."
-    elif risk_reward < 1.5:
+    elif risk_reward_value < 1:
+        trade_status = "invalid_rr_under_1r"
+        trade_decision = "Risk/ödül 1R altında; işlem planı geçersiz."
+    elif risk_reward_value < 1.5:
         trade_status = "not_suitable_weak_rr"
         trade_decision = "Risk/ödül 1.5R altında; işlem planı zayıf / uygun değil."
     else:
@@ -582,7 +532,7 @@ def prepare_final_candidate(symbol, name):
     return {
         "symbol": symbol,
         "name": name,
-        "date": df.index[-1].strftime("%Y-%m-%d"),
+        "date": str(df.index[-1].date()) if hasattr(df.index[-1], "date") else str(df.index[-1]),
         "latest_close": safe_round(latest_close),
         "previous_close": safe_round(previous_close),
         "day_high": safe_round(day_high),
@@ -616,7 +566,7 @@ def prepare_final_candidate(symbol, name):
         "reward_points": reward_text,
         "risk_reward": rr_text,
         "trade_status": trade_status,
-        "trade_decision": trade_decision
+        "trade_decision": trade_decision,
     }
 
 
@@ -682,9 +632,6 @@ Direnç seviyeleri:
 - 6A direnç: {final_data["resistance_6m"]}
 - 1Y direnç: {final_data["resistance_1y"]}
 
-Price action notu:
-Bu hisse, otomatik sektör → hisse ön filtresi sonrası final research adayı olarak seçildi. Fiyat direnç bölgesine yakınsa doğrudan işlem planı değil, breakout / kabul / retest senaryosu izlenmeli. Hacim teyidi zayıfsa bunu risk olarak belirt.
-
 Olası teknik senaryo:
 - Breakout giriş referans bölgesi: {final_data["entry_reference"]} üzeri kabul / retest
 - Stop referans bölgesi: {final_data["stop_reference"]} altı
@@ -716,19 +663,18 @@ def run_daily_research():
     sector_result = scan_sectors()
     selected_sector = sector_result["selected_sector"]
 
+    spy_change = sector_result["spy_benchmark"]["change_pct"]
+    if spy_change is None:
+        spy_change = 0
+
     stock_result = scan_stocks_for_sector(
         selected_sector["symbol"],
-        sector_result["spy_change_pct"],
-        selected_sector["change_pct"]
+        spy_change,
+        selected_sector["change_pct"],
     )
 
     final_candidate = stock_result["final_candidate"]
-
-    final_data = prepare_final_candidate(
-        final_candidate["symbol"],
-        final_candidate["name"]
-    )
-
+    final_data = prepare_final_candidate(final_candidate["symbol"], final_candidate["name"])
     agent_prompt = build_agent_prompt(selected_sector, final_data)
 
     return {
@@ -741,26 +687,35 @@ def run_daily_research():
             "selected_sector": selected_sector,
             "final_candidate": {
                 "symbol": final_data["symbol"],
-                "name": final_data["name"]
+                "name": final_data["name"],
             },
             "trade_status": final_data["trade_status"],
             "trade_decision": final_data["trade_decision"],
             "risk_reward": final_data["risk_reward"],
-            "target_1": final_data["target_1_reference"]
+            "target_1": final_data["target_1_reference"],
+        },
+        "benchmarks": {
+            "spy": sector_result["spy_benchmark"],
+            "qqq": sector_result["qqq_benchmark"],
         },
         "sector_scan": sector_result["sector_scan"],
+        "sector_errors": sector_result["sector_errors"],
         "stock_scan": stock_result["stock_scan"],
+        "stock_errors": stock_result["stock_errors"],
         "final_candidate_data": final_data,
-        "agent_prompt": agent_prompt
+        "agent_prompt": agent_prompt,
     }
 
+# -----------------------------
+# API endpoints
+# -----------------------------
 
 @app.get("/")
 def root():
     return {
         "status": "ok",
         "message": "Trading Research API is running",
-        "time": datetime.utcnow().isoformat()
+        "time": datetime.utcnow().isoformat(),
     }
 
 
@@ -769,7 +724,37 @@ def health():
     return {
         "status": "ok",
         "message": "Trading Research API is healthy",
-        "time": datetime.utcnow().isoformat()
+        "time": datetime.utcnow().isoformat(),
+    }
+
+
+@app.get("/yf-test")
+def yf_test():
+    test_symbols = ["SPY", "VOO", "IVV", "^GSPC", "QQQ", "XLU", "XLV", "D", "XEL"]
+    results = []
+
+    for symbol in test_symbols:
+        try:
+            df = get_single_ticker_data(symbol, period="1mo", interval="1d")
+            results.append({
+                "symbol": symbol,
+                "rows": len(df),
+                "columns": list(df.columns) if len(df) > 0 else [],
+                "last_date": str(df.index[-1]) if len(df) > 0 else None,
+                "status": "ok" if len(df) >= 2 else "not_enough_data",
+            })
+        except Exception as e:
+            results.append({
+                "symbol": symbol,
+                "status": "error",
+                "error": str(e),
+            })
+
+    return {
+        "status": "ok",
+        "message": "yfinance test completed",
+        "results": results,
+        "time": datetime.utcnow().isoformat(),
     }
 
 
@@ -778,10 +763,10 @@ def daily_research(refresh: bool = False):
     now = datetime.utcnow()
 
     if (
-        not refresh and
-        CACHE["daily_research"] is not None and
-        CACHE["created_at"] is not None and
-        now - CACHE["created_at"] < timedelta(minutes=CACHE_MINUTES)
+        not refresh
+        and CACHE["daily_research"] is not None
+        and CACHE["created_at"] is not None
+        and now - CACHE["created_at"] < timedelta(minutes=CACHE_MINUTES)
     ):
         cached = CACHE["daily_research"]
         cached["cache"] = "hit"
@@ -801,33 +786,5 @@ def daily_research(refresh: bool = False):
             "mode": "research_only",
             "live_orders": False,
             "human_approval_required": True,
-            "time": datetime.utcnow().isoformat()
+            "time": datetime.utcnow().isoformat(),
         }
-@app.get("/yf-test")
-def yf_test():
-    test_symbols = ["SPY", "QQQ", "XLU", "XLV", "D", "XEL"]
-    results = []
-
-    for symbol in test_symbols:
-        try:
-            df = get_single_ticker_data(symbol, period="1mo", interval="1d")
-            results.append({
-                "symbol": symbol,
-                "rows": len(df),
-                "columns": list(df.columns),
-                "last_date": str(df.index[-1]) if len(df) > 0 else None,
-                "status": "ok" if len(df) >= 2 else "not_enough_data"
-            })
-        except Exception as e:
-            results.append({
-                "symbol": symbol,
-                "status": "error",
-                "error": str(e)
-            })
-
-    return {
-        "status": "ok",
-        "message": "yfinance test completed",
-        "results": results,
-        "time": datetime.utcnow().isoformat()
-    }
