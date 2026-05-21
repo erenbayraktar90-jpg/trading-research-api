@@ -240,7 +240,36 @@ def safe_round(value, digits=2):
     if pd.isna(value):
         return None
     return round(float(value), digits)
+def get_benchmark_data(primary_symbol, fallback_symbols, period="1mo", interval="1d"):
+    symbols_to_try = [primary_symbol] + fallback_symbols
 
+    for ticker in symbols_to_try:
+        try:
+            df = get_single_ticker_data(ticker, period=period, interval=interval)
+
+            if len(df) >= 2:
+                latest = df.iloc[-1]
+                previous = df.iloc[-2]
+
+                latest_close = to_float(latest["Close"])
+                previous_close = to_float(previous["Close"])
+
+                change_pct = ((latest_close - previous_close) / previous_close) * 100
+
+                return {
+                    "requested_symbol": primary_symbol,
+                    "used_symbol": ticker,
+                    "change_pct": change_pct,
+                    "latest_close": latest_close,
+                    "previous_close": previous_close,
+                    "date": df.index[-1].strftime("%Y-%m-%d"),
+                    "status": "ok"
+                }
+
+        except Exception:
+            continue
+
+    raise RuntimeError(f"{primary_symbol} ve fallback sembolleri için veri alınamadı: {fallback_symbols}")
 
 def scan_sectors():
     rows = []
