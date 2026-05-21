@@ -247,7 +247,7 @@ def scan_sectors():
 
     for symbol, sector_name in sector_etfs.items():
         try:
-            df = get_single_ticker_data(symbol, period=period="1mo", interval="1d")
+            df = get_single_ticker_data(symbol, period="1mo", interval="1d")
 
             if len(df) < 2:
                 rows.append({"symbol": symbol, "sector": sector_name, "error": "Yeterli veri yok"})
