@@ -317,8 +317,22 @@ def scan_sectors():
     if clean.empty:
         raise RuntimeError("Sektör verisi alınamadı.")
 
-    spy_change = clean.loc[clean["symbol"] == "SPY", "change_pct"].iloc[0]
-    qqq_change = clean.loc[clean["symbol"] == "QQQ", "change_pct"].iloc[0]
+    spy_benchmark = get_benchmark_data(
+    primary_symbol="SPY",
+    fallback_symbols=["VOO", "IVV", "^GSPC"],
+    period="1mo",
+    interval="1d"
+)
+
+qqq_benchmark = get_benchmark_data(
+    primary_symbol="QQQ",
+    fallback_symbols=["QQQM"],
+    period="1mo",
+    interval="1d"
+)
+
+spy_change = spy_benchmark["change_pct"]
+qqq_change = qqq_benchmark["change_pct"]
 
     clean["vs_spy"] = clean["change_pct"].apply(lambda x: relative_status(x, spy_change))
     clean["vs_qqq"] = clean["change_pct"].apply(lambda x: relative_status(x, qqq_change))
@@ -352,6 +366,8 @@ def scan_sectors():
         "sector_scan": sector_scan,
         "spy_change_pct": safe_round(spy_change),
         "qqq_change_pct": safe_round(qqq_change),
+        "spy_benchmark_used": spy_benchmark["used_symbol"],
+"qqq_benchmark_used": qqq_benchmark["used_symbol"],
         "selected_sector": {
             "symbol": top_sector["symbol"],
             "name": top_sector["sector"],
