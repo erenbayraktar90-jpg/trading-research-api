@@ -758,3 +758,31 @@ def daily_research(refresh: bool = False):
             "human_approval_required": True,
             "time": datetime.utcnow().isoformat()
         }
+@app.get("/yf-test")
+def yf_test():
+    test_symbols = ["SPY", "QQQ", "XLU", "XLV", "D", "XEL"]
+    results = []
+
+    for symbol in test_symbols:
+        try:
+            df = get_single_ticker_data(symbol, period="1mo", interval="1d")
+            results.append({
+                "symbol": symbol,
+                "rows": len(df),
+                "columns": list(df.columns),
+                "last_date": str(df.index[-1]) if len(df) > 0 else None,
+                "status": "ok" if len(df) >= 2 else "not_enough_data"
+            })
+        except Exception as e:
+            results.append({
+                "symbol": symbol,
+                "status": "error",
+                "error": str(e)
+            })
+
+    return {
+        "status": "ok",
+        "message": "yfinance test completed",
+        "results": results,
+        "time": datetime.utcnow().isoformat()
+    }
