@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trading Research Terminal</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%278%27 fill=%27%2322d3ee%27/%3E%3Cpath d=%276 22l7-8 5 5 8-11%27 stroke=%27%23070b14%27 stroke-width=%273.5%27 fill=%27none%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #070b14;
+    --bg2: #0d1321;
+    --panel: rgba(17, 24, 39, 0.72);
+    --border: rgba(148, 163, 184, 0.14);
+    --text: #e5e7eb;
+    --muted: #8b95a7;
+    --green: #22c55e;
+    --red: #ef4444;
+    --amber: #f59e0b;
+    --cyan: #22d3ee;
+    --violet: #a78bfa;
+    --glow: 0 0 40px rgba(34, 211, 238, 0.15);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow-x: hidden; max-width: 100vw; }
+  body {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: "";
+    position: fixed; inset: 0; z-index: -2;
+    background:
+      radial-gradient(900px 500px at 10% -10%, rgba(34,211,238,0.14), transparent 60%),
+      radial-gradient(800px 500px at 100% 0%, rgba(167,139,250,0.14), transparent 60%),
+      radial-gradient(700px 400px at 50% 120%, rgba(34,197,94,0.10), transparent 60%),
+      var(--bg);
+  }
+  body::after {
+    content: "";
+    position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background-image: linear-gradient(rgba(148,163,184,0.05) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(148,163,184,0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+  }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 28px; border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(12px); position: sticky; top: 0; z-index: 10;
+    background: rgba(7,11,20,0.7);
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .logo {
+    width: 38px; height: 38px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--cyan), var(--violet));
+    display: grid; place-items: center; font-weight: 700; color: #0b1020;
+    box-shadow: var(--glow);
+  }
+  .brand h1 { font-size: 18px; font-weight: 700; letter-spacing: 0.02em; }
+  .brand small { display: block; color: var(--muted); font-size: 12px; font-weight: 400; }
+  .status { display: flex; align-items: center; gap: 14px; font-size: 13px; color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px var(--green); display: inline-block; margin-right: 6px; animation: pulse 1.6s infinite; }
+  .dot.err { background: var(--red); box-shadow: 0 0 12px var(--red); }
+  .dot.load { background: var(--amber); box-shadow: 0 0 12px var(--amber); }
+  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: 0.35 } }
+  button.refresh {
+    background: linear-gradient(135deg, rgba(34,211,238,0.18), rgba(167,139,250,0.18));
+    border: 1px solid rgba(34,211,238,0.35); color: var(--text);
+    padding: 9px 16px; border-radius: 10px; cursor: pointer; font-family: inherit; font-weight: 600;
+    transition: transform .15s, box-shadow .15s;
+  }
+  button.refresh:hover { transform: translateY(-1px); box-shadow: var(--glow); }
+  button.refresh:disabled { opacity: .5; cursor: wait; }
+
+  main { max-width: 1280px; margin: 0 auto; padding: 28px; display: grid; gap: 22px; }
+
+  .hero {
+    display: grid; grid-template-columns: 1.4fr 1fr; gap: 22px;
+  }
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 18px;
+    padding: 22px; backdrop-filter: blur(14px);
+    animation: rise .5s ease both;
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px) } to { opacity: 1; transform: none } }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin-bottom: 14px; font-weight: 500; }
+
+  .candidate .sym { font-size: 56px; font-weight: 700; line-height: 1; letter-spacing: -0.02em;
+    background: linear-gradient(90deg, #fff, var(--cyan)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .candidate .name { color: var(--muted); font-size: 15px; margin-top: 6px; }
+  .price-row { display: flex; align-items: baseline; gap: 12px; margin-top: 18px; flex-wrap: wrap; }
+  .price { font-size: 34px; font-weight: 600; }
+  .chg { font-size: 16px; font-weight: 600; padding: 4px 10px; border-radius: 8px; }
+  .up { color: var(--green); background: rgba(34,197,94,0.12); }
+  .down { color: var(--red); background: rgba(239,68,68,0.12); }
+  .flat { color: var(--muted); background: rgba(148,163,184,0.12); }
+  .badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; letter-spacing: .04em; margin-top: 16px; }
+  .badge.ok { background: rgba(34,197,94,0.14); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+  .badge.warn { background: rgba(245,158,11,0.14); color: var(--amber); border: 1px solid rgba(245,158,11,0.3); }
+  .badge.bad { background: rgba(239,68,68,0.14); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+  .decision { color: var(--muted); font-size: 13px; margin-top: 12px; line-height: 1.5; }
+
+  .levels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 18px; }
+  .lvl { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+  .lvl span { display: block; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .lvl b { font-size: 20px; font-weight: 600; display: block; margin-top: 4px; }
+  .lvl.entry b { color: var(--cyan); } .lvl.stop b { color: var(--red); } .lvl.target b { color: var(--green); }
+
+  .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .metric { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+  .metric span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .metric b { display: block; font-size: 22px; margin-top: 4px; font-weight: 600; }
+  .metric small { display: block; color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .gauge { height: 6px; background: rgba(255,255,255,0.06); border-radius: 99px; margin-top: 10px; overflow: hidden; }
+  .gauge i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--cyan), var(--violet)); transition: width 1s cubic-bezier(.2,.8,.2,1); }
+  .rr-big { font-size: 40px; font-weight: 700; color: var(--violet); }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .heat { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+  .tile { border-radius: 12px; padding: 12px; border: 1px solid var(--border); position: relative; overflow: hidden; transition: transform .15s; cursor: default; }
+  .tile:hover { transform: scale(1.04); z-index: 2; }
+  .tile b { font-size: 16px; display: block; }
+  .tile small { color: rgba(255,255,255,0.7); font-size: 11px; display: block; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tile em { font-style: normal; font-weight: 600; font-size: 15px; display: block; margin-top: 8px; }
+  .tile.selected { outline: 2px solid var(--cyan); box-shadow: var(--glow); }
+  .tile .tag { position: absolute; top: 8px; right: 8px; font-size: 9px; padding: 2px 6px; border-radius: 6px; background: rgba(34,211,238,0.25); color: var(--cyan); font-weight: 700; letter-spacing: .06em; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  td { padding: 10px; border-bottom: 1px solid rgba(148,163,184,0.06); }
+  tr { transition: background .15s; }
+  tbody tr:hover { background: rgba(255,255,255,0.03); }
+  tr.top td:first-child { color: var(--cyan); font-weight: 700; }
+  .bar { height: 6px; background: rgba(255,255,255,0.06); border-radius: 99px; overflow: hidden; width: 90px; display: inline-block; vertical-align: middle; margin-right: 8px; }
+  .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--green), var(--cyan)); border-radius: 99px; transition: width 1s cubic-bezier(.2,.8,.2,1); }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+  .pill.y { background: rgba(34,197,94,0.14); color: var(--green); }
+  .pill.n { background: rgba(239,68,68,0.14); color: var(--red); }
+
+  .bench { display: flex; gap: 12px; margin-top: 16px; }
+  .bench div { flex: 1; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+  .bench span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+  .bench b { display: block; font-size: 22px; margin-top: 4px; }
+
+  .loader { display: grid; place-items: center; padding: 80px 20px; gap: 18px; color: var(--muted); }
+  .ring { width: 56px; height: 56px; border-radius: 50%; border: 3px solid rgba(34,211,238,0.15); border-top-color: var(--cyan); animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg) } }
+  .loader .steps { font-size: 13px; }
+  .loader .steps div { opacity: .35; transition: opacity .3s; }
+  .loader .steps div.on { opacity: 1; color: var(--cyan); }
+
+  .errbox { border-color: rgba(239,68,68,0.4); }
+  .errbox pre { white-space: pre-wrap; color: var(--red); font-size: 12px; margin-top: 8px; }
+
+  footer { text-align: center; color: var(--muted); font-size: 12px; padding: 20px; }
+  .ticker { overflow: hidden; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.25); }
+  .ticker .track { display: flex; gap: 40px; white-space: nowrap; padding: 8px 0; animation: scroll 40s linear infinite; width: max-content; }
+  .ticker .track:hover { animation-play-state: paused; }
+  @keyframes scroll { from { transform: translateX(0) } to { transform: translateX(-50%) } }
+  .ticker span { font-size: 13px; }
+
+  @media (max-width: 900px) {
+    .hero, .grid2 { grid-template-columns: 1fr; }
+    main { padding: 16px; }
+    .candidate .sym { font-size: 44px; }
+    header { padding: 12px 16px; gap: 10px; flex-wrap: wrap; }
+    .brand h1 { font-size: 15px; }
+    .brand small { display: none; }
+    .status { width: 100%; justify-content: space-between; }
+    .levels { grid-template-columns: 1fr; }
+    .metrics { grid-template-columns: 1fr; }
+    .metric[style] { grid-column: auto !important; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="logo">TR</div>
+    <div>
+      <h1>Trading Research Terminal</h1>
+      <small>Daily Research Agent v1 · research only · no live orders</small>
+    </div>
+  </div>
+  <div class="status">
+    <span id="status"><i class="dot load"></i>Veri yükleniyor</span>
+    <span id="updated" class="mono"></span>
+    <button class="refresh" id="refreshBtn" onclick="load(true)">⟳ Yenile</button>
+  </div>
+</header>
+
+<div class="ticker" id="ticker" style="display:none"><div class="track" id="tickerTrack"></div></div>
+
+<main id="app">
+  <div class="loader card">
+    <div class="ring"></div>
+    <div class="steps" id="steps">
+      <div class="on">13 sektör ETF taranıyor…</div>
+      <div>En güçlü sektörün hisse evreni sıralanıyor…</div>
+      <div>Final aday için 1 yıllık teknik analiz hazırlanıyor…</div>
+    </div>
+  </div>
+</main>
+
+<footer>Veri kaynağı: yfinance · Bu bir yatırım tavsiyesi değildir · insan onayı gerekir</footer>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const fmt = (n, d = 2) => (n === null || n === undefined || isNaN(n)) ? "—" : Number(n).toFixed(d);
+const pct = (n) => (n === null || n === undefined) ? "—" : (n > 0 ? "+" : "") + fmt(n) + "%";
+const cls = (n) => n > 0 ? "up" : n < 0 ? "down" : "flat";
+const heatColor = (v) => {
+  if (v === null || v === undefined) return "rgba(148,163,184,0.15)";
+  const a = Math.min(Math.abs(v) / 2.5, 1) * 0.55 + 0.12;
+  return v >= 0 ? `rgba(34,197,94,${a})` : `rgba(239,68,68,${a})`;
+};
+
+let stepTimer;
+function animateSteps() {
+  const steps = [...document.querySelectorAll("#steps div")];
+  let i = 0;
+  stepTimer = setInterval(() => {
+    steps.forEach(s => s.classList.remove("on"));
+    i = Math.min(i + 1, steps.length - 1);
+    steps[i].classList.add("on");
+  }, 6000);
+}
+
+async function load(refresh = false) {
+  const btn = $("#refreshBtn");
+  btn.disabled = true;
+  $("#status").innerHTML = '<i class="dot load"></i>Veri yükleniyor';
+  if (refresh) {
+    $("#app").innerHTML = document.querySelector("template#loaderTpl") ? "" : $("#app").innerHTML;
+  }
+  animateSteps();
+  try {
+    const demo = new URLSearchParams(location.search).get("demo") === "1";
+    const r = await fetch(demo ? "/sample-research" : `/daily-research${refresh ? "?refresh=true" : ""}`);
+    const d = await r.json();
+    clearInterval(stepTimer);
+    if (d.status !== "ok") throw new Error(d.message || "Bilinmeyen hata");
+    render(d);
+    $("#status").innerHTML = d.cache === "demo" ? '<i class="dot load"></i>DEMO verisi' : `<i class="dot"></i>Canlı · cache ${d.cache}`;
+    $("#updated").textContent = new Date(d.created_at + "Z").toLocaleTimeString("tr-TR");
+  } catch (e) {
+    clearInterval(stepTimer);
+    $("#status").innerHTML = '<i class="dot err"></i>Hata';
+    $("#app").innerHTML = `<div class="card errbox"><h2>Veri alınamadı</h2><pre>${e.message}</pre><p class="decision">yfinance erişimi veya piyasa verisi geçici olarak kullanılamıyor olabilir. Yenile ile tekrar dene.</p></div>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function render(d) {
+  const fc = d.final_candidate_data;
+  const s = d.summary;
+  const statusMap = {
+    watchlist_candidate: ["ok", "İZLEME LİSTESİ ADAYI"],
+    not_suitable_weak_rr: ["warn", "ZAYIF R/R"],
+    invalid_rr_under_1r: ["bad", "R/R < 1 · GEÇERSİZ"],
+    not_suitable_data_missing: ["bad", "VERİ EKSİK"],
+  };
+  const [bc, bt] = statusMap[fc.trade_status] || ["warn", fc.trade_status];
+  const rsiW = Math.max(0, Math.min(100, fc.rsi14 || 0));
+  const rrNum = parseFloat(fc.risk_reward);
+
+  // ticker
+  $("#ticker").style.display = "block";
+  const items = d.sector_scan.map(r => `<span class="mono"><b>${r.symbol}</b> ${fmt(r.latest_close)} <span class="${cls(r.change_pct)}" style="background:none;padding:0">${pct(r.change_pct)}</span></span>`).join("");
+  $("#tickerTrack").innerHTML = items + items;
+
+  const heat = d.sector_scan.map(r => `
+    <div class="tile ${r.symbol === s.selected_sector.symbol ? "selected" : ""}" style="background:${heatColor(r.change_pct)}" title="${r.sector}">
+      ${r.symbol === s.selected_sector.symbol ? '<span class="tag">SEÇİLDİ</span>' : ""}
+      <b>${r.symbol}</b><small>${r.sector}</small>
+      <em>${pct(r.change_pct)}</em>
+    </div>`).join("");
+
+  const maxScore = 100;
+  const rows = d.stock_scan.map((r, i) => `
+    <tr class="${i === 0 ? "top" : ""}">
+      <td class="mono"><b>${r.symbol}</b><br><small style="color:var(--muted)">${r.name}</small></td>
+      <td class="mono">${fmt(r.latest_close)}</td>
+      <td class="mono ${cls(r.change_1d_pct)}" style="background:none">${pct(r.change_1d_pct)}</td>
+      <td class="mono ${cls(r.change_5d_pct)}" style="background:none">${pct(r.change_5d_pct)}</td>
+      <td class="mono ${cls(r.change_20d_pct)}" style="background:none">${pct(r.change_20d_pct)}</td>
+      <td><span class="pill ${r.above_sma20 ? "y" : "n"}">20</span> <span class="pill ${r.above_sma50 ? "y" : "n"}">50</span></td>
+      <td class="mono">${fmt(r.relative_volume)}x</td>
+      <td><span class="bar"><i style="width:0" data-w="${r.research_score / maxScore * 100}"></i></span><b class="mono">${r.research_score}</b></td>
+    </tr>`).join("");
+
+  $("#app").innerHTML = `
+    <section class="hero">
+      <div class="card candidate">
+        <h2>Final aday · ${s.selected_sector.name} (${s.selected_sector.symbol})</h2>
+        <div class="sym">${fc.symbol}</div>
+        <div class="name">${fc.name} · ${fc.date}</div>
+        <div class="price-row">
+          <span class="price mono">$${fmt(fc.latest_close)}</span>
+          <span class="chg ${cls(fc.change_1d_pct)}">${pct(fc.change_1d_pct)} 1G</span>
+          <span class="chg ${cls(fc.change_5d_pct)}">${pct(fc.change_5d_pct)} 5G</span>
+          <span class="chg ${cls(fc.change_20d_pct)}">${pct(fc.change_20d_pct)} 20G</span>
+        </div>
+        <span class="badge ${bc}">● ${bt}</span>
+        <p class="decision">${fc.trade_decision}</p>
+        <div class="levels">
+          <div class="lvl entry"><span>Giriş ref (20G direnç)</span><b class="mono">${fmt(fc.entry_reference)}</b></div>
+          <div class="lvl stop"><span>Stop ref (10G destek)</span><b class="mono">${fmt(fc.stop_reference)}</b></div>
+          <div class="lvl target"><span>Hedef 1</span><b class="mono">${isNaN(parseFloat(fc.target_1_reference)) ? "—" : fmt(parseFloat(fc.target_1_reference))}</b></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Teknik görünüm</h2>
+        <div class="metrics">
+          <div class="metric"><span>Risk / Ödül</span><b class="rr-big mono">${isNaN(rrNum) ? "—" : rrNum.toFixed(2) + "R"}</b><small>Risk ${fmt(fc.risk_points)} · Ödül ${fc.reward_points}</small></div>
+          <div class="metric"><span>RSI 14</span><b class="mono">${fmt(fc.rsi14, 1)}</b><div class="gauge"><i style="width:0" data-w="${rsiW}"></i></div><small>${fc.rsi_comment}</small></div>
+          <div class="metric"><span>ATR 14</span><b class="mono">${fmt(fc.atr14)}</b><small>Günlük ortalama hareket</small></div>
+          <div class="metric"><span>Göreli hacim</span><b class="mono">${fmt(fc.relative_volume)}x</b><small>${fc.volume_comment}</small></div>
+          <div class="metric" style="grid-column: span 2"><span>Trend</span><b style="font-size:15px">${fc.trend_status}</b><small class="mono">EMA20 ${fmt(fc.ema20)} · EMA50 ${fmt(fc.ema50)} · EMA200 ${fmt(fc.ema200)}</small></div>
+        </div>
+        <div class="bench">
+          <div><span>SPY</span><b class="mono ${cls(d.benchmarks.spy.change_pct)}" style="background:none">${pct(d.benchmarks.spy.change_pct)}</b></div>
+          <div><span>QQQ</span><b class="mono ${cls(d.benchmarks.qqq.change_pct)}" style="background:none">${pct(d.benchmarks.qqq.change_pct)}</b></div>
+          <div><span>Sektör</span><b class="mono ${cls(s.selected_sector.change_pct)}" style="background:none">${pct(s.selected_sector.change_pct)}</b></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Sektör ısı haritası · günlük değişim</h2>
+      <div class="heat">${heat}</div>
+    </section>
+
+    <section class="card">
+      <h2>${s.selected_sector.name} hisse sıralaması · araştırma skoru</h2>
+      <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Hisse</th><th>Fiyat</th><th>1G</th><th>5G</th><th>20G</th><th>SMA</th><th>Rel. hacim</th><th>Skor</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      </div>
+    </section>
+  `;
+  requestAnimationFrame(() => setTimeout(() => {
+    document.querySelectorAll("[data-w]").forEach(el => el.style.width = el.dataset.w + "%");
+  }, 50));
+}
+
+load();
+</script>
+</body>
+</html>
