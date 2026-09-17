@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
 import warnings
@@ -6,6 +7,8 @@ import warnings
 import numpy as np
 import pandas as pd
 import yfinance as yf
+
+from dashboard import DASHBOARD_HTML
 
 warnings.filterwarnings("ignore")
 
@@ -715,8 +718,14 @@ def root():
     return {
         "status": "ok",
         "message": "Trading Research API is running",
+        "dashboard": "/dashboard",
         "time": datetime.utcnow().isoformat(),
     }
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard():
+    return DASHBOARD_HTML
 
 
 @app.get("/health")
