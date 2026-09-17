@@ -1,6 +1,9 @@
 from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
+from pathlib import Path
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
+import json
 import warnings
 
 import numpy as np
@@ -25,6 +28,8 @@ app.add_middleware(
 
 CACHE = {"daily_research": None, "created_at": None}
 CACHE_MINUTES = 10
+DASHBOARD_FILE = Path(__file__).parent / "static" / "dashboard.html"
+SAMPLE_FILE = Path(__file__).parent / "static" / "sample_research.json"
 
 # -----------------------------
 # Universe
@@ -715,8 +720,20 @@ def root():
     return {
         "status": "ok",
         "message": "Trading Research API is running",
+        "dashboard": "/dashboard",
         "time": datetime.utcnow().isoformat(),
     }
+
+
+@app.get("/dashboard", response_class=HTMLResponse, include_in_schema=False)
+def dashboard():
+    return DASHBOARD_FILE.read_text(encoding="utf-8")
+
+
+@app.get("/sample-research", include_in_schema=False)
+def sample_research():
+    """Static demo payload for the dashboard when live market data is unavailable."""
+    return json.loads(SAMPLE_FILE.read_text(encoding="utf-8"))
 
 
 @app.get("/health")
